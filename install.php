@@ -77,14 +77,29 @@ function checkRequirements() {
         ];
     }
     
-    // cwebp binary
-    $cwebpPath = trim(shell_exec('which cwebp 2>/dev/null'));
+    // cwebp binary (apenas se shell_exec estiver habilitado)
+    $cwebpPath = '';
+    $shellExecDisabled = false;
+    
+    if (function_exists('shell_exec') && !in_array('shell_exec', explode(',', ini_get('disable_functions')))) {
+        try {
+            $cwebpPath = @shell_exec('which cwebp 2>/dev/null');
+            if ($cwebpPath) {
+                $cwebpPath = trim($cwebpPath);
+            }
+        } catch (Exception $e) {
+            $cwebpPath = '';
+        }
+    } else {
+        $shellExecDisabled = true;
+    }
+    
     $checks['cwebp'] = [
         'name' => 'cwebp Binary (Optional)',
         'status' => !empty($cwebpPath),
-        'value' => $cwebpPath ?: 'Not found',
+        'value' => $shellExecDisabled ? 'shell_exec disabled' : ($cwebpPath ?: 'Not found'),
         'required' => false,
-        'note' => 'Fallback option for WebP conversion'
+        'note' => 'Fallback option for WebP conversion (optional)'
     ];
     
     // Permissões de pasta
@@ -109,6 +124,25 @@ function checkRequirements() {
         'required' => true
     ];
     
+    // Verifica se tem pelo menos Imagick OU GD com WebP
+    $hasImageProcessor = false;
+    if (extension_loaded('imagick')) {
+        $hasImageProcessor = true;
+    } elseif (extension_loaded('gd')) {
+        $gdInfo = gd_info();
+        if (!empty($gdInfo['WebP Support'])) {
+            $hasImageProcessor = true;
+        }
+    }
+    
+    $checks['image_processor'] = [
+        'name' => 'Image Processor Available',
+        'status' => $hasImageProcessor,
+        'value' => $hasImageProcessor ? 'OK (Imagick or GD+WebP)' : 'Missing',
+        'required' => true,
+        'note' => 'Need Imagick OR GD with WebP support'
+    ];
+    
     return $checks;
 }
 
@@ -117,9 +151,13 @@ function generateApiKey() {
 }
 
 function createConfigFile($dbConfig, $apiKey) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $baseUrl = $protocol . $host;
+    
     $configContent = "<?php\n\nreturn [\n";
     $configContent .= "    'app_name' => 'WebP Converter API',\n";
-    $configContent .= "    'app_url' => '" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "',\n";
+    $configContent .= "    'base_url' => '{$baseUrl}',\n";
     $configContent .= "    \n";
     $configContent .= "    'database' => [\n";
     $configContent .= "        'host' => '{$dbConfig['host']}',\n";
@@ -318,6 +356,9 @@ if ($step === 'install' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             transition: background 0.3s;
             width: 100%;
             margin-top: 10px;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
         }
         .btn:hover {
             background: #5568d3;
@@ -388,7 +429,7 @@ if ($step === 'install' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 e gerar sua chave de API.
             </p>
             
-            <a href="?step=requirements"><button class="btn">Iniciar Instalação</button></a>
+            <a href="?step=requirements" class="btn">Iniciar Instalação</a>
             
         <?php elseif ($step === 'requirements'): ?>
             <?php $checks = checkRequirements(); ?>
@@ -425,13 +466,13 @@ if ($step === 'install' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             
             <?php if ($canContinue): ?>
-                <a href="?step=database"><button class="btn">Continuar</button></a>
+                <a href="?step=database" class="btn">Continuar</a>
             <?php else: ?>
                 <div class="error-box">
                     <strong>Requisitos não atendidos!</strong><br>
                     Por favor, instale as extensões necessárias e ajuste as permissões antes de continuar.
                 </div>
-                <a href="?step=requirements"><button class="btn btn-secondary">Verificar Novamente</button></a>
+                <a href="?step=requirements" class="btn btn-secondary">Verificar Novamente</a>
             <?php endif; ?>
             
         <?php elseif ($step === 'database'): ?>
@@ -513,11 +554,11 @@ if ($step === 'install' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 <li>Configure o cron para processar jobs:
                     <div class="api-key" style="margin: 10px 0;">* * * * * cd <?= BASE_PATH ?> && php worker.php</div>
                 </li>
-                <li>Teste a API com um request POST para <code>/api/v1/health</code></li>
+                <li>Teste a API com um request GET para <code>/api/v1/health</code></li>
                 <li>Integre com n8n usando a documentação no README.md</li>
             </ol>
             
-            <a href="/"><button class="btn" style="margin-top: 30px;">Acessar API</button></a>
+            <a href="/api/v1/health" class="btn" style="margin-top: 30px;">Testar API (Health Check)</a>
         <?php endif; ?>
     </div>
 </body>
