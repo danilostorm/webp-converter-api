@@ -1,0 +1,46 @@
+<?php
+/**
+ * WebP Converter API - Main Configuration
+ * 
+ * Copy this file to config.php and adjust settings
+ */
+
+return [
+    // Database Configuration
+    'db' => [
+        'host' => 'localhost',
+        'database' => 'webp_converter',
+        'username' => 'root',
+        'password' => '',
+        'charset' => 'utf8mb4'
+    ],
+    
+    // API Configuration
+    'api_keys' => [
+        // Format: 'key_hash' => true
+        // Keys are SHA-256 hashed for security
+        // Generate via: hash('sha256', 'your-secret-key')
+    ],
+    
+    // Base URL (used for generating download URLs)
+    'base_url' => 'http://localhost',
+    
+    // Storage Configuration
+    'max_upload_size' => 15728640, // 15MB in bytes
+    'storage_path' => __DIR__ . '/../storage',
+    
+    // Rate Limiting (requests per minute)
+    'rate_limit' => 60,
+    
+    // Job Processing
+    'job_timeout' => 300, // seconds
+    'job_retention' => 86400, // 24 hours
+    
+    // Image Processing Defaults
+    'default_quality' => 85,
+    'max_dimension' => 4096,
+    
+    // Logging
+    'log_level' => 'error', // debug, info, warning, error
+    'log_path' => __DIR__ . '/../storage/logs/app.log'
+];
